@@ -90,7 +90,6 @@ impl<'a> ScatterGraph<'a> {
         // we can allocate is to calculate 400 / n where n is the number of y labels we have
         let label_scale = Scale::uniform(12.5);
         let max_y_pixels = (400 / &self.y_labels.len()) as f32;
-        let y_end_offset = (y_end.0, y_end.1 - 5.0);
         let mut focused_loc = y_end; // we are starting at the bottom of the y-line
 
         // lets iterate through the y labels and draw them on now
