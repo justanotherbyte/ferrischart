@@ -2,7 +2,10 @@ use image::{RgbImage, Rgb, imageops};
 use imageproc::drawing;
 use rusttype::{Font, Scale};
 
+use crate::error::ChartResult;
+
 pub struct ScatterGraph<'a> {
+    title: &'a str,
     x_axis_text: &'a str,
     y_axis_text: &'a str,
     x_labels: Vec<&'a str>,
@@ -12,6 +15,7 @@ pub struct ScatterGraph<'a> {
 impl<'a> Default for ScatterGraph<'a> {
     fn default() -> Self {
         Self {
+            title: "unset",
             x_axis_text: "unset",
             y_axis_text: "unset",
             x_labels: vec![],
@@ -24,6 +28,13 @@ impl<'a> ScatterGraph<'a> {
     pub fn build() -> Self {
         Self::default()
     }
+
+   pub fn set_title(mut self, title: &'a str) -> Self {
+        self.title = title;
+
+        self
+    }
+
     pub fn set_axis_text(mut self, x_axis_text: &'a str, y_axis_text: &'a str) -> Self {
         self.x_axis_text = x_axis_text;
         self.y_axis_text = y_axis_text;
@@ -38,7 +49,7 @@ impl<'a> ScatterGraph<'a> {
         self
     }
 
-    pub fn draw(self, path: &str) {
+    pub fn draw(self, path: &str) -> ChartResult<()> {
         // first step is to create a basic white image
         let mut canvas = RgbImage::new(500, 500);
         canvas.fill(255); // fill it with 255 to make it white
@@ -64,9 +75,10 @@ impl<'a> ScatterGraph<'a> {
         // write x-axis text
         let text_color = Rgb([0u8, 0u8, 0u8]);
         // first step is to find the center of the x-axis where the text should be placed
-        let (axis_x_text_size_x, _) = drawing::text_size(scale, &font, &self.x_axis_text);
+        let (axis_x_text_size_x, axis_x_text_size_y) = drawing::text_size(scale, &font, &self.x_axis_text);
         let x_axis_center = (500 - axis_x_text_size_x) / 2;
-        drawing::draw_text_mut(&mut canvas, text_color, x_axis_center, 450, scale, &font, &self.x_axis_text);
+        let x_axis_text_y = 500 - axis_x_text_size_y;
+        drawing::draw_text_mut(&mut canvas, text_color, x_axis_center, x_axis_text_y, scale, &font, &self.x_axis_text);
 
         // write y-axis text
         // this is much more complex
@@ -92,32 +104,142 @@ impl<'a> ScatterGraph<'a> {
         let max_y_pixels = (400 / &self.y_labels.len()) as f32;
         let mut focused_loc = y_end; // we are starting at the bottom of the y-line
 
+        let tick_size: f32 = 5.0;
+
         // lets iterate through the y labels and draw them on now
         // focused_loc is the location we are currently looking at on the graph
-        drawing::draw_cross_mut(&mut canvas, text_color, y_end.0 as i32, y_end.1 as i32);
         for label in self.y_labels {
             let (focused_loc_x, focused_loc_y) = focused_loc;
             // first we'll draw a line indicating the real position of the number
             // tick size - 5
-            let tick_start = (focused_loc_x, focused_loc_y - 5.0);
-            let tick_end = (focused_loc_x - 5.0, focused_loc_y - 5.0);
+            /*
+            1) We state that the position where the tick_starts is directly in the middle
+            of the pixels we've allocated it. So say we allocate it a space that is 10 pixels high,
+            it needs to start around the 5 pixel mark, thus we calculate the middle:
+            max_y_pixels / 2
+            2) The x position will be the same, since it'll be starting on the line
+            3) The x position needs to change on the y-axis however when drawing the tick, since the tick
+            extends on the x-axis, so we subtract 5.0 from the current position: focused_loc_x - 5.0
+            5.0 being our tick size
+            */
+            let tick_start = (focused_loc_x, focused_loc_y - (max_y_pixels / 2f32));
+            let tick_end = (focused_loc_x - tick_size, focused_loc_y - (max_y_pixels / 2f32));
             drawing::draw_line_segment_mut(&mut canvas, tick_start, tick_end, text_color);
-            // next let's calculate how big the text will be
-            let (text_size_x, text_size_y) = drawing::text_size(label_scale, &font, label); // we'll use this data
-            // to calculate an offset so that the label is displayed clearly
-            let (text_loc_x, text_loc_y) = (focused_loc_x - ((text_size_x * 2) as f32), focused_loc_y - text_size_y as f32);
-            // we offset the y component by the text's height (text_size_y) to make sure that the bottom of the text is at the bottom
-            // of the line so that its flush with the line
-            // let's now draw the text on
-            drawing::draw_text_mut(&mut canvas, text_color, text_loc_x as i32, text_loc_y as i32, label_scale, &font, label);
-            // now that the text has been drawn, we need to change focused_loc to be the new text's location
-            // disregarding offset, since that's calculated every iteration since it can change
-            focused_loc = (focused_loc_x, focused_loc_y - max_y_pixels); // we calculate the new location by keeping the x-axis
-            // the same, since that's not changing, but we subtract from the y-axis by the maximum pixel amount that we previously
-            // calculated
+            
+            /*
+            Drawing on the text will be slightly different.
+            1) First step is to calculate the position where the tick ends, so we can make sure that
+            our text begins there (that's already been done above)
+            2) Since the co-ordinate system considers (0,0) as the top-left, the text's top-left pixel will be set
+            as the point we calculate
+            3) We want the middle of our label to be aligned with the tick, so we need to perform the following:
+                - calculate the text's height (since we're dealing with the y-axis here)
+                - divide this height by 2, to calculate a rough center
+                - offset the y-component of the text by this value
+            4) Running through step 3 makes sure that the center of the label is actually aligned with the tick,
+            however, it'll still be overlapping. To fix this, we'll decrease its x-component by the text-width
+            */
+            let (text_width, text_height) = drawing::text_size(label_scale, &font, label);
+            let rough_center = text_height / 2;
+            let (text_location_x, text_location_y) = ((tick_end.0 - text_width as f32), (tick_end.1 - rough_center as f32));
+
+            drawing::draw_text_mut(
+                &mut canvas,
+                text_color,
+                text_location_x as i32,
+                text_location_y as i32,
+                label_scale,
+                &font,
+                label
+            );
+
+            // Now we just increment focused_loc to the new position we want to focus on
+            // we can do that by decrementing its y-component by the max_y_pixels we previously calculated
+            // Note: decreasing the y-component actually places the position higher since (0,0) is the top-left
+            focused_loc = (focused_loc_x, focused_loc_y - max_y_pixels);
         }
+
+        // now let's iterate through the x labels and do the same
+        // again, focused_loc is the location we are currently looking at on the graph
+        // we'll reset this back to y_end
+        // y_end is the bottom of the y-axis line, and also the beginning of the x-axis line
+        focused_loc = y_end;
+
+        // again we need to calculate the maximum amount of pixels we can allocate
+        // for each x label
+        let max_x_pixels = (400 / &self.x_labels.len()) as f32;
+
+        for label in self.x_labels {
+            let (focused_loc_x, focused_loc_y) = focused_loc;
+            // again first, we need to draw on a tick
+            /*
+            1) Same as before, we state that the beginning of the tick (tick_start) is directly
+            in the middle of the pixels we've allocated it
+            2) To calculate this, we again divide the max_x_pixels value by 2 to calculate an offset value
+            3) This time, our y-component will stay the same, since we're only dealing with the x-axis here,
+            and the ticks y-component (at least the position where it starts) will stay the same. Only time we change
+            its y-component is when we alter the position so we can draw the tick
+            */
+            let tick_start = ((focused_loc_x + (max_x_pixels / 2f32)), focused_loc_y);
+            let tick_end = ((focused_loc_x + (max_x_pixels / 2f32)), focused_loc_y + tick_size); // increment y-value
+            // by tick_size since that's the height of our tick
+            drawing::draw_line_segment_mut(
+                &mut canvas,
+                tick_start,
+                tick_end,
+                text_color
+            );
+
+            /*
+            Drawing text on is slightly different from how we drew on our y-axis text
+            1) First step (similarly to before) is to place our text's top-left pixel at the position where the
+            tick ends
+            2) However, this makes it so that the text renders just to the right of the tick
+            3) If we want to make the text render directly in the middle of it, we need to have half of the pixels
+            to the left of the tick, and half of the pixels to the right of the tick.
+            4) An easy way to do this is to calculate the text width, and divide by 2 to get an offset value
+            5) Offset its x-component by decreasing it by this offset value
+            */
+            let (text_width, _) = drawing::text_size(label_scale, &font, label);
+            let offset_value = text_width / 2;
+            let (text_location_x, text_location_y) = tick_end;
+            let text_location_x = text_location_x - offset_value as f32;
+            drawing::draw_text_mut(
+                &mut canvas,
+                text_color,
+                text_location_x as i32,
+                text_location_y as i32,
+                label_scale,
+                &font,
+                label
+            );
+
+            // increment focused_loc on its x-component by incrementing by max_x_pixels
+            // Note: increasing the x-component moves it further along the graph
+            focused_loc = (focused_loc_x + max_x_pixels, focused_loc_y);
+        }
+
+        // now that all of the important sections are complete, we can now
+        // focus on drawing a title
+        // the title will be at the same y position as where the y-axis line starts
+        // we want the bottom of the title to be flush with the top of the y-axis line
+        // so we just offset by the text's height
+
+        let (title_width, title_height) = drawing::text_size(scale, &font, self.title);
+        let center = (500 - title_width) / 2;
+        let (title_pos_x, title_pos_y) = (center, 50 - title_height);
+        drawing::draw_text_mut(
+            &mut canvas,
+            text_color,
+            title_pos_x,
+            title_pos_y,
+            scale,
+            &font,
+            self.title
+        );
         
         // save image
-        canvas.save(path).unwrap();
+        canvas.save(path)?;
+        Ok(())
     }
 }
