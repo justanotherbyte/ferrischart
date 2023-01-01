@@ -11,9 +11,9 @@ pub struct ScatterGraph<'a> {
     title: &'a str,
     x_axis_text: &'a str,
     y_axis_text: &'a str,
-    x_labels: Vec<&'a str>,
-    y_labels: Vec<&'a str>,
-    data: Vec<(String, String)>
+    x_labels: Vec<f32>,
+    y_labels: Vec<f32>,
+    data: Vec<(f32, f32)>
 }
 
 impl<'a> Default for ScatterGraph<'a> {
@@ -36,7 +36,7 @@ impl<'a> ScatterGraph<'a> {
 
     pub fn load_data<T>(mut self, data: Vec<(T, T)>) -> Self 
     where
-        T: Into<String>,
+        T: Into<f32>,
     {
         let mut transformed = vec![];
         for (x, y) in data {
@@ -61,7 +61,7 @@ impl<'a> ScatterGraph<'a> {
         self
     }
 
-    pub fn set_labels(mut self, x_labels: Vec<&'a str>, y_labels: Vec<&'a str>) -> Self {
+    pub fn set_labels(mut self, x_labels: Vec<f32>, y_labels: Vec<f32>) -> Self {
         self.x_labels = x_labels;
         self.y_labels = y_labels;
 
@@ -131,6 +131,7 @@ impl<'a> ScatterGraph<'a> {
         // lets iterate through the y labels and draw them on now
         // focused_loc is the location we are currently looking at on the graph
         for label in self.y_labels {
+            let label_string = label.to_string();
             let (focused_loc_x, focused_loc_y) = focused_loc;
             // first we'll draw a line indicating the real position of the number
             // tick size - 5
@@ -149,7 +150,7 @@ impl<'a> ScatterGraph<'a> {
             let tick_end = (focused_loc_x - tick_size, focused_loc_y - mid);
             drawing::draw_line_segment_mut(&mut canvas, tick_start, tick_end, text_color);
 
-            y_ticks.insert(label.into(), focused_loc_y - mid);
+            y_ticks.insert(label_string.clone(), focused_loc_y - mid);
             
             /*
             Drawing on the text will be slightly different.
@@ -164,7 +165,7 @@ impl<'a> ScatterGraph<'a> {
             4) Running through step 3 makes sure that the center of the label is actually aligned with the tick,
             however, it'll still be overlapping. To fix this, we'll decrease its x-component by the text-width
             */
-            let (text_width, text_height) = drawing::text_size(label_scale, &font, label);
+            let (text_width, text_height) = drawing::text_size(label_scale, &font, &label_string);
             let rough_center = text_height / 2;
             let (text_location_x, text_location_y) = ((tick_end.0 - text_width as f32), (tick_end.1 - rough_center as f32));
 
@@ -175,7 +176,7 @@ impl<'a> ScatterGraph<'a> {
                 text_location_y as i32,
                 label_scale,
                 &font,
-                label
+                &label_string
             );
 
             // Now we just increment focused_loc to the new position we want to focus on
@@ -195,6 +196,7 @@ impl<'a> ScatterGraph<'a> {
         let max_x_pixels = (400 / &self.x_labels.len()) as f32;
 
         for label in self.x_labels {
+            let label_string = label.to_string();
             let (focused_loc_x, focused_loc_y) = focused_loc;
             // again first, we need to draw on a tick
             /*
@@ -215,7 +217,7 @@ impl<'a> ScatterGraph<'a> {
                 tick_end,
                 text_color
             );
-            x_ticks.insert(label.into(), focused_loc_x + mid);
+            x_ticks.insert(label_string.clone(), focused_loc_x + mid);
 
             /*
             Drawing text on is slightly different from how we drew on our y-axis text
@@ -227,7 +229,7 @@ impl<'a> ScatterGraph<'a> {
             4) An easy way to do this is to calculate the text width, and divide by 2 to get an offset value
             5) Offset its x-component by decreasing it by this offset value
             */
-            let (text_width, _) = drawing::text_size(label_scale, &font, label);
+            let (text_width, _) = drawing::text_size(label_scale, &font, label_string.as_str());
             let offset_value = text_width / 2;
             let (text_location_x, text_location_y) = tick_end;
             let text_location_x = text_location_x - offset_value as f32;
@@ -238,7 +240,7 @@ impl<'a> ScatterGraph<'a> {
                 text_location_y as i32,
                 label_scale,
                 &font,
-                label
+                &label_string
             );
 
             // increment focused_loc on its x-component by incrementing by max_x_pixels
@@ -268,7 +270,11 @@ impl<'a> ScatterGraph<'a> {
         // now for the most important part
         // actually plotting positions
         let mut existing_positions = HashMap::new();
+        println!("{:?}\n\n{:?}", x_ticks, y_ticks);
         for (x, y) in self.data {
+            let x = x.to_string();
+            let y = y.to_string();
+            println!("{}, {}", x, y);
             let x_pos = x_ticks[&x] as i32; // shouldn't error
             let y_pos = y_ticks[&y] as i32;
             // if the position already exists, that means its a duplicate set of data
