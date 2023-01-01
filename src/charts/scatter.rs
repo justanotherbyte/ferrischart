@@ -1,15 +1,19 @@
+use std::collections::HashMap;
+
 use image::{RgbImage, Rgb, imageops};
 use imageproc::drawing;
 use rusttype::{Font, Scale};
 
 use crate::error::ChartResult;
+use super::random_rgb;
 
 pub struct ScatterGraph<'a> {
     title: &'a str,
     x_axis_text: &'a str,
     y_axis_text: &'a str,
     x_labels: Vec<&'a str>,
-    y_labels: Vec<&'a str>
+    y_labels: Vec<&'a str>,
+    data: Vec<(String, String)>
 }
 
 impl<'a> Default for ScatterGraph<'a> {
@@ -19,7 +23,8 @@ impl<'a> Default for ScatterGraph<'a> {
             x_axis_text: "unset",
             y_axis_text: "unset",
             x_labels: vec![],
-            y_labels: vec![]
+            y_labels: vec![],
+            data: vec![]
         }
     }
 }
@@ -29,7 +34,21 @@ impl<'a> ScatterGraph<'a> {
         Self::default()
     }
 
-   pub fn set_title(mut self, title: &'a str) -> Self {
+    pub fn load_data<T>(mut self, data: Vec<(T, T)>) -> Self 
+    where
+        T: Into<String>,
+    {
+        let mut transformed = vec![];
+        for (x, y) in data {
+            transformed.push((x.into(), y.into()))
+        }
+
+        self.data = transformed;
+
+        self
+    }
+
+    pub fn set_title(mut self, title: &'a str) -> Self {
         self.title = title;
 
         self
@@ -106,6 +125,9 @@ impl<'a> ScatterGraph<'a> {
 
         let tick_size: f32 = 5.0;
 
+        let mut y_ticks: HashMap<String, f32> = HashMap::new(); // holds mappings for "y label tick: at n y-component"
+        let mut x_ticks: HashMap<String, f32> = HashMap::new(); // holds mappings for "x label tick: at n x-component"
+
         // lets iterate through the y labels and draw them on now
         // focused_loc is the location we are currently looking at on the graph
         for label in self.y_labels {
@@ -122,9 +144,12 @@ impl<'a> ScatterGraph<'a> {
             extends on the x-axis, so we subtract 5.0 from the current position: focused_loc_x - 5.0
             5.0 being our tick size
             */
-            let tick_start = (focused_loc_x, focused_loc_y - (max_y_pixels / 2f32));
-            let tick_end = (focused_loc_x - tick_size, focused_loc_y - (max_y_pixels / 2f32));
+            let mid = max_y_pixels / 2f32;
+            let tick_start = (focused_loc_x, focused_loc_y - mid);
+            let tick_end = (focused_loc_x - tick_size, focused_loc_y - mid);
             drawing::draw_line_segment_mut(&mut canvas, tick_start, tick_end, text_color);
+
+            y_ticks.insert(label.into(), focused_loc_y - mid);
             
             /*
             Drawing on the text will be slightly different.
@@ -180,8 +205,9 @@ impl<'a> ScatterGraph<'a> {
             and the ticks y-component (at least the position where it starts) will stay the same. Only time we change
             its y-component is when we alter the position so we can draw the tick
             */
-            let tick_start = ((focused_loc_x + (max_x_pixels / 2f32)), focused_loc_y);
-            let tick_end = ((focused_loc_x + (max_x_pixels / 2f32)), focused_loc_y + tick_size); // increment y-value
+            let mid = max_x_pixels / 2f32;
+            let tick_start = ((focused_loc_x + mid), focused_loc_y);
+            let tick_end = ((focused_loc_x + mid), focused_loc_y + tick_size); // increment y-value
             // by tick_size since that's the height of our tick
             drawing::draw_line_segment_mut(
                 &mut canvas,
@@ -189,6 +215,7 @@ impl<'a> ScatterGraph<'a> {
                 tick_end,
                 text_color
             );
+            x_ticks.insert(label.into(), focused_loc_x + mid);
 
             /*
             Drawing text on is slightly different from how we drew on our y-axis text
@@ -237,6 +264,33 @@ impl<'a> ScatterGraph<'a> {
             &font,
             self.title
         );
+
+        // now for the most important part
+        // actually plotting positions
+        let mut existing_positions = HashMap::new();
+        for (x, y) in self.data {
+            let x_pos = x_ticks[&x] as i32; // shouldn't error
+            let y_pos = y_ticks[&y] as i32;
+            // if the position already exists, that means its a duplicate set of data
+            // so we'll increment its count by 1
+            let k = (x_pos, y_pos);
+            if existing_positions.contains_key(&k) {
+                *existing_positions.get_mut(&k).unwrap() += 1;
+            } else {
+                existing_positions.insert(k, 1);
+            }
+        }
+
+        for (pos, count) in existing_positions {
+            let color = random_rgb();
+            println!("{count}");
+            drawing::draw_filled_circle_mut(
+                &mut canvas,
+                pos,
+                count,
+                color
+            );
+        }
         
         // save image
         canvas.save(path)?;
