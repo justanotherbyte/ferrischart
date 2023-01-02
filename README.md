@@ -11,7 +11,7 @@ Rusterize is a heavy WIP. Feel free to contribute if you have time.
 
 ![scatter](tests/scatter.png)
 
-Running `cargo test` reported that it took `0.38s` to generate. The test can be seen in `src/lib.rs`. Keep in mind this is the time it took to run the test + any additional procedures cargo needs to run. This was run on the following machine:
+Running `cargo test` reported that it took `0.38s` to generate. The test can be seen in `src/lib.rs`, which used `100` pairs of `(f32, f32)` data. Keep in mind this is the time it took to run the test + any additional procedures cargo needs to run. This was run on the following machine:
 ```diff
 Model Name:	MacBook Pro
 + Model Identifier:	MacBookPro11,3
