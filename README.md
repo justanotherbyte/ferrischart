@@ -1,6 +1,6 @@
 <img src=".github/banner.png" alt="ferrischart">
 
-## What is ferrischart?
+## What is Ferrischart?
 Ferrischart is a project I'm working on to build good-looking charts in Rust. This crate is inspired by matplotlib, but doesn't necessarily aim to replace its capabilities.
 
 Ferrischart is a heavy WIP. Feel free to contribute if you have time.
