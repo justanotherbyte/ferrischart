@@ -1,11 +1,13 @@
 <img src=".github/banner.png" alt="ferrischart">
 
 ## What is Ferrischart?
-Ferrischart is a project I'm working on to build good-looking charts in Rust. This crate is inspired by matplotlib, but doesn't necessarily aim to replace its capabilities.
+Ferrischart is a project I'm working on to build informative charts in Rust. This crate is inspired by matplotlib, but doesn't necessarily aim to replace its capabilities.
+
+Ferrischart also aims to implement a range of mathematical functions and algorithms that relate to graphs *(such as euclidean distance)*.
 
 Ferrischart is a heavy WIP. Feel free to contribute if you have time.
 
-### An example of what ferrischart is currently capable of:
+### An example of what Ferrischart is currently capable of:
 
 #### Scatter Graphs
 

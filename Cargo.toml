@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 license = "MIT"
-license-file = "LICENSE"
 description = "Build informative graphs in Rust"
 repository = "https://github.com/justanotherbyte/ferrischart"
 readme = "README.md"

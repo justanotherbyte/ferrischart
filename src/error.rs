@@ -4,7 +4,7 @@ use image::ImageError;
 
 #[derive(Debug)]
 pub enum ChartErrors {
-    ImageError
+    ImageError,
 }
 
 pub type ChartResult<T> = Result<T, ChartErrors>;
