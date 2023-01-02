@@ -38,16 +38,58 @@ impl<'a> ScatterGraph<'a> {
     where
         T: Into<f32>,
     {
+        if data.is_empty() {
+            panic!("data cannot be empty");
+        }
+
         let mut transformed = vec![];
         for (x, y) in data {
             transformed.push((x.into(), y.into()))
         }
+        // now that we have this data
+        // we want to generate labels for it
+        // first we calculate the lowest label and highest label
+        // by rounding the lowest value down and highest value up
+        let mut x_labels = vec![];
+        let mut y_labels = vec![];
+        for (x, y) in &transformed {
+            x_labels.push(x.to_owned());
+            y_labels.push(y.to_owned());
+        } // shifting them to their own vectors
 
+        x_labels.sort_by(f32::total_cmp);
+        y_labels.sort_by(f32::total_cmp);
+
+        let (lowest_x, highest_x) = (x_labels[0].floor(), x_labels[x_labels.len() - 1].ceil());
+        let (lowest_y, highest_y) = (y_labels[0].floor(), y_labels[y_labels.len() - 1].ceil());
+
+        // clear the vectors so that we can now
+        // allocate the new labels
+        x_labels.clear();
+        y_labels.clear();
+
+        // since Step isn't implemented for f32
+        // we're doing this old-school
+        let mut current = lowest_x;
+        while current <= highest_x {
+            x_labels.push(current);
+            current += 1.0;
+        }
+
+        current = lowest_y;
+        while current <= highest_y {
+            y_labels.push(current);
+            current += 1.0;
+        }
+        
         self.data = transformed;
+        self.x_labels = x_labels;
+        self.y_labels = y_labels;
 
         self
     }
 
+    /// Sets a title for the graph
     pub fn set_title(mut self, title: &'a str) -> Self {
         self.title = title;
 
@@ -61,6 +103,13 @@ impl<'a> ScatterGraph<'a> {
         self
     }
 
+    /// Sets the labels for each axis
+    /// For example, `.set_labels(vec![1.0, 2.0, 4.0, 5.0])` will draw
+    /// 1.0 2.0 4.0 5.0 along the x-axis.
+    /// Only use this method if you know what you're doing since the [`load_data`] method already attempts
+    /// to do this for you.
+    /// 
+    /// [`load_data`]: #method.load_data
     pub fn set_labels(mut self, x_labels: Vec<f32>, y_labels: Vec<f32>) -> Self {
         self.x_labels = x_labels;
         self.y_labels = y_labels;
@@ -125,8 +174,8 @@ impl<'a> ScatterGraph<'a> {
 
         let tick_size: f32 = 5.0;
 
-        let mut y_ticks: HashMap<String, f32> = HashMap::new(); // holds mappings for "y label tick: at n y-component"
-        let mut x_ticks: HashMap<String, f32> = HashMap::new(); // holds mappings for "x label tick: at n x-component"
+        let mut y_tick_locations: HashMap<String, f32> = HashMap::new(); // holds mappings for "y label tick: at n y-component"
+        let mut x_tick_locations: HashMap<String, f32> = HashMap::new(); // holds mappings for "x label tick: at n x-component"
 
         // lets iterate through the y labels and draw them on now
         // focused_loc is the location we are currently looking at on the graph
@@ -150,7 +199,7 @@ impl<'a> ScatterGraph<'a> {
             let tick_end = (focused_loc_x - tick_size, focused_loc_y - mid);
             drawing::draw_line_segment_mut(&mut canvas, tick_start, tick_end, text_color);
 
-            y_ticks.insert(label_string.clone(), focused_loc_y - mid);
+            y_tick_locations.insert(label_string.clone(), focused_loc_y - mid);
             
             /*
             Drawing on the text will be slightly different.
@@ -217,7 +266,7 @@ impl<'a> ScatterGraph<'a> {
                 tick_end,
                 text_color
             );
-            x_ticks.insert(label_string.clone(), focused_loc_x + mid);
+            x_tick_locations.insert(label_string.clone(), focused_loc_x + mid);
 
             /*
             Drawing text on is slightly different from how we drew on our y-axis text
@@ -270,26 +319,44 @@ impl<'a> ScatterGraph<'a> {
         // now for the most important part
         // actually plotting positions
         let mut existing_positions = HashMap::new();
-        println!("{:?}\n\n{:?}", x_ticks, y_ticks);
         for (x, y) in self.data {
-            let x = x.to_string();
-            let y = y.to_string();
-            println!("{}, {}", x, y);
-            let x_pos = x_ticks[&x] as i32; // shouldn't error
-            let y_pos = y_ticks[&y] as i32;
+            let x_string = x.to_string();
+            let y_string = y.to_string();
+
+            let x_pos = x_tick_locations.get(&x_string).copied().unwrap_or_else(|| {
+                let closest_floor = x.floor(); // first we calculate the floor value of our data
+                // example: 9.2 would become 9.0 and 8.6 would become 8.0
+                let closest_floor_string = &closest_floor.to_string(); // we convert this into a string
+                // so we can use this value as a key in accessing the position of this floor value's tick
+                let multiplier = x - closest_floor; // we find a multiplier
+                // example: a value of 9.2 would have a floor of 9.0, so the multiplier would become 0.2 (20% essentially)
+                let new_x = x_tick_locations[closest_floor_string] + (max_x_pixels * multiplier);
+                // we retrieve the closest floor's tick position and create a new position by offseting the tick's position
+                // by max_x_pixels * multiplier which is essentially saying (if we reference the example above), since the multiplier
+                // was 0.2 (or 20%), we want to get 20% of the maximum allocated pixels and add it on.
+                new_x
+            }) as i32;
+            let y_pos = y_tick_locations.get(&y_string).copied().unwrap_or_else(|| {
+                let closest_floor = y.floor();
+                let closest_floor_string = &closest_floor.to_string();
+                let multiplier = y - closest_floor;
+                let new_y = y_tick_locations[closest_floor_string] - (max_y_pixels * multiplier);
+                new_y
+            }) as i32;
+            
+
             // if the position already exists, that means its a duplicate set of data
             // so we'll increment its count by 1
             let k = (x_pos, y_pos);
             if existing_positions.contains_key(&k) {
                 *existing_positions.get_mut(&k).unwrap() += 1;
             } else {
-                existing_positions.insert(k, 1);
+                existing_positions.insert(k, 3);
             }
         }
 
         for (pos, count) in existing_positions {
             let color = random_rgb();
-            println!("{count}");
             drawing::draw_filled_circle_mut(
                 &mut canvas,
                 pos,
