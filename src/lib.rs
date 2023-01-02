@@ -1,13 +1,13 @@
-//! # Rustplot: *<small>Build informative graphs in Rust</small>*
+//! # Ferrischart: *<small>Build informative graphs in Rust</small>*
 //!
-//! Rustplot is a tool to build informative graphs in Rust. rustplot is built entirely from the ground up completely
+//! Ferrischart is a tool to build informative graphs in Rust. ferrischart is built entirely from the ground up completely
 //! in Rust! It aims to interface will Rust data types as well as the [polars](https://crates.io/crates/polars) crate.
 //! 
 //! ## Quickstart: Quickly building a Scatter Graph
-//! To showcase how easy it is to use rustplot, we'll build a scatter graph, comparing what grades students achieved
+//! To showcase how easy it is to use ferrischart, we'll build a scatter graph, comparing what grades students achieved
 //! in an exam conducted when they're 15/16 (GCSE) and an exam, conducted when they're 17/18 (IB).
 //! ```rust
-//! use rustplot::{error::ChartResult, charts::scatter::ScatterGraph};
+//! use ferrischart::{error::ChartResult, charts::scatter::ScatterGraph};
 //! 
 //! # fn example() -> ChartResult<()> {
 //! // first we'll generate some random data for this example
@@ -30,7 +30,7 @@
 //! ```
 //! 
 //! The following code should generate a graph that looks something like this (keep in mind, your data positions may differ)
-//! ![example graph](https://raw.githubusercontent.com/justanotherbyte/rustplot/main/tests/scatter.png)
+//! ![example graph](https://raw.githubusercontent.com/justanotherbyte/ferrischart/main/tests/scatter.png)
 
 pub mod charts;
 pub mod error;

@@ -1,11 +1,11 @@
-<img src=".github/banner.png" alt="Rustplot">
+<img src=".github/banner.png" alt="ferrischart">
 
-## What is Rustplot?
-Rustplot is a project I'm working on to build good-looking charts in Rust. This crate is inspired by matplotlib, but doesn't necessarily aim to replace its capabilities.
+## What is ferrischart?
+Ferrischart is a project I'm working on to build good-looking charts in Rust. This crate is inspired by matplotlib, but doesn't necessarily aim to replace its capabilities.
 
-Rustplot is a heavy WIP. Feel free to contribute if you have time.
+Ferrischart is a heavy WIP. Feel free to contribute if you have time.
 
-### An example of what Rustplot is currently capable of:
+### An example of what ferrischart is currently capable of:
 
 #### Scatter Graphs
 
