@@ -1,3 +1,5 @@
+//! A module holding the various types of graphs and charts
+
 pub mod scatter;
 
 use image::{Rgb, Rgba};

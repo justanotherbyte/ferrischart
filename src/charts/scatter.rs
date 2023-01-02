@@ -1,3 +1,5 @@
+//! Scatter Graph implementation
+
 use std::collections::HashMap;
 
 use image::{RgbImage, Rgb, imageops};
@@ -7,6 +9,7 @@ use rusttype::{Font, Scale};
 use crate::error::ChartResult;
 use super::random_rgb;
 
+/// A struct that aids in building scatter graphs.
 pub struct ScatterGraph<'a> {
     title: &'a str,
     x_axis_text: &'a str,
@@ -30,10 +33,13 @@ impl<'a> Default for ScatterGraph<'a> {
 }
 
 impl<'a> ScatterGraph<'a> {
+    /// Begin the process of building a scatter graph.
+    /// Initially returns the default value.
     pub fn build() -> Self {
         Self::default()
     }
 
+    /// Loads data and generates labels based on the data given.
     pub fn load_data<T>(mut self, data: Vec<(T, T)>) -> Self 
     where
         T: Into<f32>,
@@ -89,13 +95,14 @@ impl<'a> ScatterGraph<'a> {
         self
     }
 
-    /// Sets a title for the graph
+    /// Sets a title for the graph.
     pub fn set_title(mut self, title: &'a str) -> Self {
         self.title = title;
 
         self
     }
 
+    /// Set some text indicating what each respective axis represents.
     pub fn set_axis_text(mut self, x_axis_text: &'a str, y_axis_text: &'a str) -> Self {
         self.x_axis_text = x_axis_text;
         self.y_axis_text = y_axis_text;
@@ -117,6 +124,7 @@ impl<'a> ScatterGraph<'a> {
         self
     }
 
+    /// Draws the graph and saves to a file path.
     pub fn draw(self, path: &str) -> ChartResult<()> {
         // first step is to create a basic white image
         let mut canvas = RgbImage::new(500, 500);

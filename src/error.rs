@@ -1,3 +1,5 @@
+//! Holds the crate's `Result` type and error enum
+
 use image::ImageError;
 
 #[derive(Debug)]
